@@ -47,6 +47,10 @@ export namespace CppBuildCommands {
         id: 'cppBuild.showCompileCommandsPath',
         label: nls.localize('theia/cpp-build/showCompileCommandsPath', 'C/C++: Show Compile Commands Path')
     };
+    export const GENERATE_CLANGD_CONFIG = {
+        id: 'cppBuild.generateClangdConfig',
+        label: nls.localize('theia/cpp-build/generateClangdConfig', 'C/C++: Generate .clangd Config')
+    };
     export const SHOW_BUILD_TARGETS = {
         id: 'cppBuild.showBuildTargets',
         label: nls.localize('theia/cpp-build/showBuildTargets', 'C/C++: Show Build Targets')
@@ -206,6 +210,21 @@ export class CppBuildFrontendContribution implements CommandContribution, MenuCo
                 } else {
                     this.messageService.warn('No compile_commands.json found. Run configure first.');
                 }
+            }
+        });
+
+        commands.registerCommand(CppBuildCommands.GENERATE_CLANGD_CONFIG, {
+            execute: async () => {
+                const root = this.getWorkspaceRoot();
+                if (!root) {
+                    this.messageService.warn('No workspace open.');
+                    return;
+                }
+                this.outputChannel?.show({ preserveFocus: true });
+                this.outputChannel?.appendLine('Generating .clangd config...');
+                const options = this.activeOptions.get(root.toString());
+                await this.buildService.generateClangdConfig(root, options);
+                this.messageService.info('Generated .clangd config.');
             }
         });
 

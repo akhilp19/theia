@@ -9,9 +9,11 @@
 
 import { injectable, inject } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
+import * as path from 'path';
 import { CppBuildServer, CppBuildClient, DetectedBuildSystem } from '../common/cpp-build-protocol';
 import { BuildConfigurationOptions, BuildTarget, DebugLaunchInfo } from '../common/build-system-model';
 import { BuildSystemRegistry } from './build-system-registry';
+import { getWorkspaceRootPath, writeClangdConfig } from './process-utils';
 
 @injectable()
 export class CppBuildServerImpl implements CppBuildServer {
@@ -88,6 +90,22 @@ export class CppBuildServerImpl implements CppBuildServer {
         };
     }
 
+    protected async updateClangdConfig(root: string, options?: BuildConfigurationOptions): Promise<void> {
+        const system = await this.getBuildSystem(root);
+        if (!system) {
+            return;
+        }
+        const compileCommandsPath = await system.getCompileCommandsPath(options);
+        if (!compileCommandsPath) {
+            this.client?.onBuildOutput(root, 'No compile_commands.json found; skipping .clangd generation.');
+            return;
+        }
+        const compileCommandsDir = path.dirname(getWorkspaceRootPath(compileCommandsPath.toString()));
+        const workspaceRoot = getWorkspaceRootPath(root);
+        await writeClangdConfig(workspaceRoot, compileCommandsDir);
+        this.client?.onBuildOutput(root, `Generated .clangd with CompilationDatabase: ${compileCommandsDir}`);
+    }
+
     async configure(root: string, options?: BuildConfigurationOptions): Promise<void> {
         const system = await this.getBuildSystem(root);
         if (!system || !system.configure) {
@@ -96,6 +114,7 @@ export class CppBuildServerImpl implements CppBuildServer {
         this.client?.onBuildEvent(root, { type: 'started' });
         try {
             await system.configure(this.withOutputStreaming(root, options));
+            await this.updateClangdConfig(root, options);
             this.client?.onBuildEvent(root, { type: 'finished' });
         } catch (err) {
             this.client?.onBuildEvent(root, { type: 'failed', message: String(err) });
@@ -111,6 +130,7 @@ export class CppBuildServerImpl implements CppBuildServer {
         this.client?.onBuildEvent(root, { type: 'started' });
         try {
             await system.build(this.withOutputStreaming(root, options));
+            await this.updateClangdConfig(root, options);
             this.client?.onBuildEvent(root, { type: 'finished' });
         } catch (err) {
             this.client?.onBuildEvent(root, { type: 'failed', message: String(err) });
@@ -131,6 +151,10 @@ export class CppBuildServerImpl implements CppBuildServer {
             this.client?.onBuildEvent(root, { type: 'failed', message: String(err) });
             throw err;
         }
+    }
+
+    async generateClangdConfig(root: string, options?: BuildConfigurationOptions): Promise<void> {
+        await this.updateClangdConfig(root, options);
     }
 
     async getDebugInfo(root: string, targetName: string, options?: BuildConfigurationOptions): Promise<DebugLaunchInfo | undefined> {

@@ -28,6 +28,7 @@ export interface CppBuildServer extends RpcServer<CppBuildClient> {
     configure(root: string, options?: BuildConfigurationOptions): Promise<void>;
     build(root: string, options?: BuildConfigurationOptions): Promise<void>;
     clean(root: string, options?: BuildConfigurationOptions): Promise<void>;
+    generateClangdConfig(root: string, options?: BuildConfigurationOptions): Promise<void>;
     getDebugInfo(root: string, targetName: string, options?: BuildConfigurationOptions): Promise<DebugLaunchInfo | undefined>;
     dispose(): void;
 }
