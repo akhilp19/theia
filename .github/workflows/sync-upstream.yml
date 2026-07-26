@@ -1,0 +1,46 @@
+name: Sync upstream Theia
+
+on:
+  schedule:
+    # Every Monday at 06:00 UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to sync into (default: main)'
+        required: false
+        default: 'main'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.PAT }}
+
+      - name: Configure Git
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream https://github.com/eclipse-theia/theia.git
+          git fetch upstream
+
+      - name: Merge upstream changes
+        run: |
+          TARGET_BRANCH="${{ github.event.inputs.branch || 'main' }}"
+          git checkout "$TARGET_BRANCH"
+          git merge "upstream/$TARGET_BRANCH" --no-edit
+
+      - name: Push to fork
+        run: |
+          TARGET_BRANCH="${{ github.event.inputs.branch || 'main' }}"
+          git push origin "$TARGET_BRANCH"
