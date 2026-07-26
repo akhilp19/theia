@@ -17,6 +17,7 @@ import {
     nls
 } from '@theia/core/lib/common';
 import { FrontendApplicationContribution, KeybindingContribution, KeybindingRegistry, QuickInputService, QuickPickItem } from '@theia/core/lib/browser';
+import { OutputChannelManager } from '@theia/output/lib/browser/output-channel';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { CppBuildService } from './cpp-build-service';
 import { BuildConfigurationOptions, BuildTarget } from '../common/build-system-model';
@@ -67,9 +68,25 @@ export class CppBuildFrontendContribution implements CommandContribution, MenuCo
     @inject(QuickInputService)
     protected readonly quickInputService: QuickInputService;
 
+    @inject(OutputChannelManager)
+    protected readonly outputChannelManager: OutputChannelManager;
+
     protected activeOptions = new Map<string, BuildConfigurationOptions>();
+    protected outputChannel?: ReturnType<OutputChannelManager['getChannel']>;
 
     async initialize(): Promise<void> {
+        this.outputChannel = this.outputChannelManager.getChannel('C/C++ Build');
+
+        this.buildService.onBuildOutput(({ root, data }) => {
+            this.outputChannel?.appendLine(`[${root.path.base}] ${data}`);
+        });
+
+        this.buildService.onActiveBuildSystemChanged(system => {
+            if (system) {
+                this.outputChannel?.appendLine(`Detected C/C++ build system: ${system.name} (${system.type})`);
+            }
+        });
+
         this.workspaceService.onWorkspaceChanged(async roots => {
             if (roots.length > 0) {
                 const root = roots[0].resource;
@@ -137,6 +154,8 @@ export class CppBuildFrontendContribution implements CommandContribution, MenuCo
                     this.messageService.warn('No workspace open.');
                     return;
                 }
+                this.outputChannel?.show({ preserveFocus: true });
+                this.outputChannel?.appendLine('Configuring C/C++ project...');
                 const options = this.activeOptions.get(root.toString());
                 await this.buildService.configure(root, options);
                 this.messageService.info('C/C++ project configured.');
@@ -150,6 +169,8 @@ export class CppBuildFrontendContribution implements CommandContribution, MenuCo
                     this.messageService.warn('No workspace open.');
                     return;
                 }
+                this.outputChannel?.show({ preserveFocus: true });
+                this.outputChannel?.appendLine('Building C/C++ project...');
                 const options = this.activeOptions.get(root.toString());
                 await this.buildService.build(root, options);
                 this.messageService.info('C/C++ build finished.');
@@ -163,6 +184,8 @@ export class CppBuildFrontendContribution implements CommandContribution, MenuCo
                     this.messageService.warn('No workspace open.');
                     return;
                 }
+                this.outputChannel?.show({ preserveFocus: true });
+                this.outputChannel?.appendLine('Cleaning C/C++ project...');
                 const options = this.activeOptions.get(root.toString());
                 await this.buildService.clean(root, options);
                 this.messageService.info('C/C++ project cleaned.');

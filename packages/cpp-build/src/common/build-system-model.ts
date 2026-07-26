@@ -55,6 +55,7 @@ export interface BuildConfigurationOptions {
     readonly preset?: string;
     readonly target?: string;
     readonly extraArgs?: string[];
+    readonly onOutput?: (line: string) => void;
 }
 
 export interface DebugLaunchInfo {

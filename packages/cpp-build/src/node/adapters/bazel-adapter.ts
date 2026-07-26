@@ -52,9 +52,9 @@ export class BazelBuildSystem implements BuildSystem {
         console.log(`Building Bazel project at ${this.root.toString()}, target ${options?.target ?? '//...'}`);
     }
 
-    async clean(): Promise<void> {
+    async clean(options?: BuildConfigurationOptions): Promise<void> {
         const rootPath = getWorkspaceRootPath(this.root.toString());
-        const result = await runCommand('bazel', ['clean'], rootPath);
+        const result = await runStreamingCommand('bazel', ['clean'], rootPath, options?.onOutput);
         if (result.exitCode !== 0) {
             throw new Error(`Bazel clean failed: ${result.stderr || result.stdout}`);
         }

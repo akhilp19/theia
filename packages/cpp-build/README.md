@@ -44,4 +44,5 @@ Keybindings can be customized in Theia's keyboard shortcuts editor or `keybindin
 ## Status
 
 - Phase A (scaffold) complete.
-- Phase B (detection service) in progress: CMake preset/variant detection and compile_commands.json resolution implemented.
+- Phase B (detection service) complete: CMake preset/variant detection and compile_commands.json resolution implemented.
+- Phase C (build execution & output) complete: configure/build/clean invoke real processes and stream output to a **C/C++ Build** output channel.

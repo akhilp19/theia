@@ -81,6 +81,13 @@ export class CppBuildServerImpl implements CppBuildServer {
         return system.getBuildTargets(options);
     }
 
+    protected withOutputStreaming(root: string, options?: BuildConfigurationOptions): BuildConfigurationOptions {
+        return {
+            ...options,
+            onOutput: (line: string) => this.client?.onBuildOutput(root, line)
+        };
+    }
+
     async configure(root: string, options?: BuildConfigurationOptions): Promise<void> {
         const system = await this.getBuildSystem(root);
         if (!system || !system.configure) {
@@ -88,7 +95,7 @@ export class CppBuildServerImpl implements CppBuildServer {
         }
         this.client?.onBuildEvent(root, { type: 'started' });
         try {
-            await system.configure(options);
+            await system.configure(this.withOutputStreaming(root, options));
             this.client?.onBuildEvent(root, { type: 'finished' });
         } catch (err) {
             this.client?.onBuildEvent(root, { type: 'failed', message: String(err) });
@@ -103,7 +110,7 @@ export class CppBuildServerImpl implements CppBuildServer {
         }
         this.client?.onBuildEvent(root, { type: 'started' });
         try {
-            await system.build(options);
+            await system.build(this.withOutputStreaming(root, options));
             this.client?.onBuildEvent(root, { type: 'finished' });
         } catch (err) {
             this.client?.onBuildEvent(root, { type: 'failed', message: String(err) });
@@ -118,7 +125,7 @@ export class CppBuildServerImpl implements CppBuildServer {
         }
         this.client?.onBuildEvent(root, { type: 'started' });
         try {
-            await system.clean(options);
+            await system.clean(this.withOutputStreaming(root, options));
             this.client?.onBuildEvent(root, { type: 'finished' });
         } catch (err) {
             this.client?.onBuildEvent(root, { type: 'failed', message: String(err) });

@@ -52,9 +52,9 @@ export class MakeBuildSystem implements BuildSystem {
         console.log(`Building Make project at ${this.root.toString()}, target ${options?.target ?? 'all'}`);
     }
 
-    async clean(): Promise<void> {
+    async clean(options?: BuildConfigurationOptions): Promise<void> {
         const rootPath = getWorkspaceRootPath(this.root.toString());
-        const result = await runCommand('make', ['clean'], rootPath);
+        const result = await runStreamingCommand('make', ['clean'], rootPath, options?.onOutput);
         if (result.exitCode !== 0) {
             throw new Error(`Make clean failed: ${result.stderr || result.stdout}`);
         }

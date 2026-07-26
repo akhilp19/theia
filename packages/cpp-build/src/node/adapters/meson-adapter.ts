@@ -59,10 +59,10 @@ export class MesonBuildSystem implements BuildSystem {
         console.log(`Building Meson project at ${this.root.toString()}, target ${options?.target ?? 'all'}`);
     }
 
-    async clean(): Promise<void> {
+    async clean(options?: BuildConfigurationOptions): Promise<void> {
         const rootPath = getWorkspaceRootPath(this.root.toString());
         const buildDir = this.buildDirectory ? getWorkspaceRootPath(this.buildDirectory.toString()) : path.join(rootPath, 'builddir');
-        const result = await runCommand('meson', ['compile', '--clean', '-C', buildDir], rootPath);
+        const result = await runStreamingCommand('meson', ['compile', '--clean', '-C', buildDir], rootPath, options?.onOutput);
         if (result.exitCode !== 0) {
             throw new Error(`Meson clean failed: ${result.stderr || result.stdout}`);
         }

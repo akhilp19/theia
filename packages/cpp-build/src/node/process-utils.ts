@@ -19,6 +19,15 @@ export interface CommandResult {
 }
 
 export function runCommand(command: string, args: string[], cwd?: string): Promise<CommandResult> {
+    return runStreamingCommand(command, args, cwd);
+}
+
+export function runStreamingCommand(
+    command: string,
+    args: string[],
+    cwd: string | undefined,
+    onOutput?: (line: string) => void
+): Promise<CommandResult> {
     return new Promise((resolve, reject) => {
         const child = spawn(command, args, {
             cwd,
@@ -28,13 +37,28 @@ export function runCommand(command: string, args: string[], cwd?: string): Promi
         let stdout = '';
         let stderr = '';
 
-        child.stdout?.on('data', data => {
-            stdout += data.toString();
-        });
+        const capture = (data: Buffer | string, into: 'stdout' | 'stderr') => {
+            const chunk = data.toString();
+            const combined = into === 'stdout' ? stdout : stderr;
+            const updated = combined + chunk;
+            if (into === 'stdout') {
+                stdout = updated;
+            } else {
+                stderr = updated;
+            }
 
-        child.stderr?.on('data', data => {
-            stderr += data.toString();
-        });
+            if (onOutput) {
+                const lines = chunk.split(/\r?\n/);
+                for (const line of lines) {
+                    if (line.length > 0) {
+                        onOutput(line);
+                    }
+                }
+            }
+        };
+
+        child.stdout?.on('data', data => capture(data, 'stdout'));
+        child.stderr?.on('data', data => capture(data, 'stderr'));
 
         child.on('error', reject);
         child.on('close', exitCode => {

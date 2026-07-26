@@ -21,7 +21,7 @@ import {
     CompileCommand,
     DebugLaunchInfo
 } from '../../common/build-system-model';
-import { exists, getWorkspaceRootPath, readJson, runCommand } from '../process-utils';
+import { exists, getWorkspaceRootPath, readJson, runStreamingCommand } from '../process-utils';
 
 interface CMakeConfigurePreset {
     name: string;
@@ -131,7 +131,7 @@ export class CMakeBuildSystem implements BuildSystem {
             args.push('-DCMAKE_BUILD_TYPE=' + variant);
         }
 
-        const result = await runCommand('cmake', args, rootPath);
+        const result = await runStreamingCommand('cmake', args, rootPath, options?.onOutput);
         if (result.exitCode !== 0) {
             throw new Error(`CMake configure failed: ${result.stderr || result.stdout}`);
         }
@@ -150,7 +150,7 @@ export class CMakeBuildSystem implements BuildSystem {
             args.push('--config', options.variant);
         }
 
-        const result = await runCommand('cmake', args, rootPath);
+        const result = await runStreamingCommand('cmake', args, rootPath, options?.onOutput);
         if (result.exitCode !== 0) {
             throw new Error(`CMake build failed: ${result.stderr || result.stdout}`);
         }
@@ -161,7 +161,7 @@ export class CMakeBuildSystem implements BuildSystem {
         const buildDir = this.resolveBuildDirectory(options);
         const args = ['--build', buildDir, '--target', 'clean'];
 
-        const result = await runCommand('cmake', args, rootPath);
+        const result = await runStreamingCommand('cmake', args, rootPath, options?.onOutput);
         if (result.exitCode !== 0) {
             throw new Error(`CMake clean failed: ${result.stderr || result.stdout}`);
         }
