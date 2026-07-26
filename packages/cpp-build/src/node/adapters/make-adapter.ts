@@ -7,12 +7,14 @@
 // SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-only WITH Classpath-exception-2.0
 // *****************************************************************************
 
-import { injectable } from '@theia/core/shared/inversify';
+import { injectable, inject, optional } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
-import { promises as fs } from 'fs';
+import { RemoteConnectionService } from '@theia/remote/lib/electron-node/remote-connection-service';
+import { RemoteConnection } from '@theia/remote/lib/electron-node/remote-types';
 import { BuildSystemAdapter } from '../build-system-adapter';
-import { BuildConfigurationOptions, BuildSystem, BuildSystemType, CompileCommand } from '../../common/build-system-model';
-import { exists, getWorkspaceRootPath, runCommand } from '../process-utils';
+import { BuildConfigurationOptions, BuildSystem, BuildSystemType, BuildTarget } from '../../common/build-system-model';
+import { BuildExecutor, getRemoteConnection, getRemoteConnectionId } from '../build-executor';
+import { fileExists, getWorkspaceRootPath } from '../process-utils';
 
 @injectable()
 export class MakeBuildSystemAdapter implements BuildSystemAdapter {
@@ -21,12 +23,19 @@ export class MakeBuildSystemAdapter implements BuildSystemAdapter {
     readonly name = 'Make';
     readonly priority = 10;
 
+    @inject(BuildExecutor)
+    protected readonly executor: BuildExecutor;
+
+    @inject(RemoteConnectionService) @optional()
+    protected readonly remoteConnectionService?: RemoteConnectionService;
+
     async canHandle(root: URI): Promise<boolean> {
-        return exists(root.resolve('Makefile')) || exists(root.resolve('makefile'));
+        const connection = getRemoteConnection(this.remoteConnectionService, root.toString());
+        return fileExists(root.resolve('Makefile'), connection) || fileExists(root.resolve('makefile'), connection);
     }
 
     async createBuildSystem(root: URI): Promise<BuildSystem> {
-        return new MakeBuildSystem(root);
+        return new MakeBuildSystem(root, this.executor, this.remoteConnectionService);
     }
 }
 
@@ -37,8 +46,18 @@ export class MakeBuildSystem implements BuildSystem {
     readonly buildDirectory?: URI;
 
     constructor(
-        readonly root: URI
+        readonly root: URI,
+        protected readonly executor: BuildExecutor,
+        protected readonly remoteConnectionService?: RemoteConnectionService
     ) { }
+
+    protected get connectionId(): string | undefined {
+        return getRemoteConnectionId(this.root.toString());
+    }
+
+    protected get connection(): RemoteConnection | undefined {
+        return getRemoteConnection(this.remoteConnectionService, this.root.toString());
+    }
 
     async detect(): Promise<boolean> {
         return true;
@@ -49,12 +68,17 @@ export class MakeBuildSystem implements BuildSystem {
     }
 
     async build(options?: BuildConfigurationOptions): Promise<void> {
-        console.log(`Building Make project at ${this.root.toString()}, target ${options?.target ?? 'all'}`);
+        const rootPath = getWorkspaceRootPath(this.root.toString());
+        const target = options?.target ?? 'all';
+        const result = await this.executor.run('make', [target], rootPath, this.connectionId, options?.onOutput);
+        if (result.exitCode !== 0) {
+            throw new Error(`Make build failed: ${result.stderr || result.stdout}`);
+        }
     }
 
     async clean(options?: BuildConfigurationOptions): Promise<void> {
         const rootPath = getWorkspaceRootPath(this.root.toString());
-        const result = await runStreamingCommand('make', ['clean'], rootPath, options?.onOutput);
+        const result = await this.executor.run('make', ['clean'], rootPath, this.connectionId, options?.onOutput);
         if (result.exitCode !== 0) {
             throw new Error(`Make clean failed: ${result.stderr || result.stdout}`);
         }
@@ -65,9 +89,9 @@ export class MakeBuildSystem implements BuildSystem {
             this.root.resolve('compile_commands.json'),
             this.root.resolve('build/compile_commands.json')
         ];
-        for (const path of candidates) {
-            if (await exists(path)) {
-                return path;
+        for (const candidate of candidates) {
+            if (await fileExists(candidate, this.connection)) {
+                return candidate;
             }
         }
         return undefined;
@@ -75,14 +99,5 @@ export class MakeBuildSystem implements BuildSystem {
 
     async getBuildTargets?(): Promise<BuildTarget[]> {
         return [];
-    }
-}
-
-async function exists(uri: URI): Promise<boolean> {
-    try {
-        const stat = await fs.stat(uri.path.toString());
-        return stat.isFile();
-    } catch {
-        return false;
     }
 }

@@ -7,13 +7,15 @@
 // SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-only WITH Classpath-exception-2.0
 // *****************************************************************************
 
-import { injectable } from '@theia/core/shared/inversify';
+import { injectable, inject, optional } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
-import { promises as fs } from 'fs';
 import * as path from 'path';
+import { RemoteConnectionService } from '@theia/remote/lib/electron-node/remote-connection-service';
+import { RemoteConnection } from '@theia/remote/lib/electron-node/remote-types';
 import { BuildSystemAdapter } from '../build-system-adapter';
-import { BuildConfigurationOptions, BuildSystem, BuildSystemType, CompileCommand } from '../../common/build-system-model';
-import { exists, getWorkspaceRootPath, runCommand } from '../process-utils';
+import { BuildConfigurationOptions, BuildSystem, BuildSystemType, BuildTarget } from '../../common/build-system-model';
+import { BuildExecutor, getRemoteConnection, getRemoteConnectionId } from '../build-executor';
+import { fileExists, getWorkspaceRootPath } from '../process-utils';
 
 @injectable()
 export class MesonBuildSystemAdapter implements BuildSystemAdapter {
@@ -22,12 +24,19 @@ export class MesonBuildSystemAdapter implements BuildSystemAdapter {
     readonly name = 'Meson';
     readonly priority = 80;
 
+    @inject(BuildExecutor)
+    protected readonly executor: BuildExecutor;
+
+    @inject(RemoteConnectionService) @optional()
+    protected readonly remoteConnectionService?: RemoteConnectionService;
+
     async canHandle(root: URI): Promise<boolean> {
-        return exists(root.resolve('meson.build'));
+        const connection = getRemoteConnection(this.remoteConnectionService, root.toString());
+        return fileExists(root.resolve('meson.build'), connection);
     }
 
     async createBuildSystem(root: URI): Promise<BuildSystem> {
-        return new MesonBuildSystem(root);
+        return new MesonBuildSystem(root, this.executor, this.remoteConnectionService);
     }
 }
 
@@ -38,9 +47,19 @@ export class MesonBuildSystem implements BuildSystem {
 
     constructor(
         readonly root: URI,
+        protected readonly executor: BuildExecutor,
+        protected readonly remoteConnectionService?: RemoteConnectionService,
         readonly buildDirectory?: URI
     ) {
         this.buildDirectory = buildDirectory ?? root.resolve('builddir');
+    }
+
+    protected get connectionId(): string | undefined {
+        return getRemoteConnectionId(this.root.toString());
+    }
+
+    protected get connection(): RemoteConnection | undefined {
+        return getRemoteConnection(this.remoteConnectionService, this.root.toString());
     }
 
     async detect(): Promise<boolean> {
@@ -52,40 +71,42 @@ export class MesonBuildSystem implements BuildSystem {
     }
 
     async configure(options?: BuildConfigurationOptions): Promise<void> {
-        console.log(`Configuring Meson project at ${this.root.toString()} with variant ${options?.variant ?? 'debug'}`);
+        const rootPath = getWorkspaceRootPath(this.root.toString());
+        const buildDir = this.buildDirectory ? getWorkspaceRootPath(this.buildDirectory.toString()) : path.join(rootPath, 'builddir');
+        const result = await this.executor.run('meson', ['setup', buildDir, rootPath], rootPath, this.connectionId, options?.onOutput);
+        if (result.exitCode !== 0) {
+            throw new Error(`Meson configure failed: ${result.stderr || result.stdout}`);
+        }
     }
 
     async build(options?: BuildConfigurationOptions): Promise<void> {
-        console.log(`Building Meson project at ${this.root.toString()}, target ${options?.target ?? 'all'}`);
+        const rootPath = getWorkspaceRootPath(this.root.toString());
+        const buildDir = this.buildDirectory ? getWorkspaceRootPath(this.buildDirectory.toString()) : path.join(rootPath, 'builddir');
+        const args = options?.target ? ['compile', '-C', buildDir, options.target] : ['compile', '-C', buildDir];
+        const result = await this.executor.run('meson', args, rootPath, this.connectionId, options?.onOutput);
+        if (result.exitCode !== 0) {
+            throw new Error(`Meson build failed: ${result.stderr || result.stdout}`);
+        }
     }
 
     async clean(options?: BuildConfigurationOptions): Promise<void> {
         const rootPath = getWorkspaceRootPath(this.root.toString());
         const buildDir = this.buildDirectory ? getWorkspaceRootPath(this.buildDirectory.toString()) : path.join(rootPath, 'builddir');
-        const result = await runStreamingCommand('meson', ['compile', '--clean', '-C', buildDir], rootPath, options?.onOutput);
+        const result = await this.executor.run('meson', ['compile', '--clean', '-C', buildDir], rootPath, this.connectionId, options?.onOutput);
         if (result.exitCode !== 0) {
             throw new Error(`Meson clean failed: ${result.stderr || result.stdout}`);
         }
     }
 
     async getCompileCommandsPath(): Promise<URI | undefined> {
-        const path = this.buildDirectory!.resolve('compile_commands.json');
-        if (await exists(path)) {
-            return path;
+        const candidate = this.buildDirectory!.resolve('compile_commands.json');
+        if (await fileExists(candidate, this.connection)) {
+            return candidate;
         }
         return undefined;
     }
 
     async getBuildTargets?(): Promise<BuildTarget[]> {
         return [];
-    }
-}
-
-async function exists(uri: URI): Promise<boolean> {
-    try {
-        const stat = await fs.stat(uri.path.toString());
-        return stat.isFile();
-    } catch {
-        return false;
     }
 }

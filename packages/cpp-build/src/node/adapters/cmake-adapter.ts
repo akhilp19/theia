@@ -7,21 +7,22 @@
 // SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-only WITH Classpath-exception-2.0
 // *****************************************************************************
 
-import { injectable } from '@theia/core/shared/inversify';
+import { injectable, inject, optional } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
-import { promises as fs } from 'fs';
 import * as path from 'path';
+import { RemoteConnectionService } from '@theia/remote/lib/electron-node/remote-connection-service';
+import { RemoteConnection } from '@theia/remote/lib/electron-node/remote-types';
 import { BuildSystemAdapter } from '../build-system-adapter';
 import {
     BuildConfigurationOptions,
-    BuildPreset,
     BuildSystem,
     BuildSystemType,
     BuildTarget,
     CompileCommand,
     DebugLaunchInfo
 } from '../../common/build-system-model';
-import { exists, getWorkspaceRootPath, readJson, runStreamingCommand } from '../process-utils';
+import { BuildExecutor, getRemoteConnection, getRemoteConnectionId } from '../build-executor';
+import { fileExists, getWorkspaceRootPath, readJson } from '../process-utils';
 
 interface CMakeConfigurePreset {
     name: string;
@@ -55,12 +56,19 @@ export class CMakeBuildSystemAdapter implements BuildSystemAdapter {
     readonly name = 'CMake';
     readonly priority = 100;
 
+    @inject(BuildExecutor)
+    protected readonly executor: BuildExecutor;
+
+    @inject(RemoteConnectionService) @optional()
+    protected readonly remoteConnectionService?: RemoteConnectionService;
+
     async canHandle(root: URI): Promise<boolean> {
-        return exists(path.join(getWorkspaceRootPath(root.toString()), 'CMakeLists.txt'));
+        const connection = getRemoteConnection(this.remoteConnectionService, root.toString());
+        return fileExists(root.resolve('CMakeLists.txt'), connection);
     }
 
     async createBuildSystem(root: URI): Promise<BuildSystem> {
-        return CMakeBuildSystem.detect(root);
+        return CMakeBuildSystem.detect(root, this.executor, this.remoteConnectionService);
     }
 }
 
@@ -74,18 +82,19 @@ export class CMakeBuildSystem implements BuildSystem {
 
     protected constructor(
         readonly root: URI,
+        protected readonly executor: BuildExecutor,
+        protected readonly remoteConnectionService?: RemoteConnectionService,
         readonly buildDirectory?: URI
     ) { }
 
-    static async detect(root: URI): Promise<CMakeBuildSystem> {
-        const rootPath = getWorkspaceRootPath(root.toString());
+    protected get connection(): RemoteConnection | undefined {
+        return getRemoteConnection(this.remoteConnectionService, this.root.toString());
+    }
 
-        const presetsPath = path.join(rootPath, 'CMakePresets.json');
-        const userPresetsPath = path.join(rootPath, 'CMakeUserPresets.json');
-
-        const system = new CMakeBuildSystem(root);
-        await system.loadPresets(presetsPath);
-        await system.loadPresets(userPresetsPath);
+    static async detect(root: URI, executor: BuildExecutor, remoteConnectionService?: RemoteConnectionService): Promise<CMakeBuildSystem> {
+        const system = new CMakeBuildSystem(root, executor, remoteConnectionService);
+        await system.loadPresets(root.resolve('CMakePresets.json'));
+        await system.loadPresets(root.resolve('CMakeUserPresets.json'));
 
         // If no presets, fall back to a default build directory.
         if (!system.buildDirectory && system.configurePresets.length === 0) {
@@ -93,6 +102,10 @@ export class CMakeBuildSystem implements BuildSystem {
         }
 
         return system;
+    }
+
+    protected get connectionId(): string | undefined {
+        return getRemoteConnectionId(this.root.toString());
     }
 
     async detect(): Promise<boolean> {
@@ -131,7 +144,7 @@ export class CMakeBuildSystem implements BuildSystem {
             args.push('-DCMAKE_BUILD_TYPE=' + variant);
         }
 
-        const result = await runStreamingCommand('cmake', args, rootPath, options?.onOutput);
+        const result = await this.executor.run('cmake', args, rootPath, this.connectionId, options?.onOutput);
         if (result.exitCode !== 0) {
             throw new Error(`CMake configure failed: ${result.stderr || result.stdout}`);
         }
@@ -150,7 +163,7 @@ export class CMakeBuildSystem implements BuildSystem {
             args.push('--config', options.variant);
         }
 
-        const result = await runStreamingCommand('cmake', args, rootPath, options?.onOutput);
+        const result = await this.executor.run('cmake', args, rootPath, this.connectionId, options?.onOutput);
         if (result.exitCode !== 0) {
             throw new Error(`CMake build failed: ${result.stderr || result.stdout}`);
         }
@@ -161,7 +174,7 @@ export class CMakeBuildSystem implements BuildSystem {
         const buildDir = this.resolveBuildDirectory(options);
         const args = ['--build', buildDir, '--target', 'clean'];
 
-        const result = await runStreamingCommand('cmake', args, rootPath, options?.onOutput);
+        const result = await this.executor.run('cmake', args, rootPath, this.connectionId, options?.onOutput);
         if (result.exitCode !== 0) {
             throw new Error(`CMake clean failed: ${result.stderr || result.stdout}`);
         }
@@ -169,16 +182,15 @@ export class CMakeBuildSystem implements BuildSystem {
 
     async getCompileCommandsPath(options?: BuildConfigurationOptions): Promise<URI | undefined> {
         const buildDir = this.resolveBuildDirectory(options);
-        const candidate = path.join(buildDir, 'compile_commands.json');
-        if (await exists(candidate)) {
-            return URI.fromFilePath(candidate);
+        const candidate = URI.fromFilePath(path.join(buildDir, 'compile_commands.json'));
+        if (await fileExists(candidate, this.connection)) {
+            return candidate;
         }
 
         // Some generators place it under the source tree.
-        const rootPath = getWorkspaceRootPath(this.root.toString());
-        const fallback = path.join(rootPath, 'compile_commands.json');
-        if (await exists(fallback)) {
-            return URI.fromFilePath(fallback);
+        const fallback = this.root.resolve('compile_commands.json');
+        if (await fileExists(fallback, this.connection)) {
+            return fallback;
         }
 
         return undefined;
@@ -190,7 +202,7 @@ export class CMakeBuildSystem implements BuildSystem {
             return [];
         }
 
-        const commands = await readJson<CompileCommand[]>(compileCommandsPath.path.toString());
+        const commands = await readJson<CompileCommand[]>(compileCommandsPath, this.connection);
         if (!commands) {
             return [];
         }
@@ -224,8 +236,8 @@ export class CMakeBuildSystem implements BuildSystem {
         };
     }
 
-    protected async loadPresets(filePath: string): Promise<void> {
-        const presets = await readJson<CMakePresetsFile>(filePath);
+    protected async loadPresets(uri: URI): Promise<void> {
+        const presets = await readJson<CMakePresetsFile>(uri, this.connection);
         if (!presets) {
             return;
         }

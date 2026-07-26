@@ -15,6 +15,7 @@ import { CppBuildServer, CppBuildClient, cppBuildPath } from '../common/cpp-buil
 import { CppBuildServerImpl } from './cpp-build-server';
 import { BuildSystemRegistry } from './build-system-registry';
 import { BuildSystemAdapter } from './build-system-adapter';
+import { BuildExecutor, LocalBuildExecutor, RemoteAwareBuildExecutor } from './build-executor';
 import { CMakeBuildSystemAdapter } from './adapters/cmake-adapter';
 import { BazelBuildSystemAdapter } from './adapters/bazel-adapter';
 import { MesonBuildSystemAdapter } from './adapters/meson-adapter';
@@ -25,6 +26,10 @@ export default new ContainerModule(bind => {
     bind(CppBuildServerImpl).toSelf().inSingletonScope();
     bind(CppBuildServer).toService(CppBuildServerImpl);
     bind(BuildSystemRegistry).toSelf().inSingletonScope();
+
+    bind(LocalBuildExecutor).toSelf().inSingletonScope();
+    bind(RemoteAwareBuildExecutor).toSelf().inSingletonScope();
+    bind(BuildExecutor).toService(RemoteAwareBuildExecutor);
 
     bindRootContributionProvider(bind, BuildSystemAdapter);
     bind(BuildSystemAdapter).to(CMakeBuildSystemAdapter).inSingletonScope();

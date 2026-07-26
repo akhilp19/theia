@@ -7,12 +7,14 @@
 // SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-only WITH Classpath-exception-2.0
 // *****************************************************************************
 
-import { injectable, inject } from '@theia/core/shared/inversify';
+import { injectable, inject, optional } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import * as path from 'path';
+import { RemoteConnectionService } from '@theia/remote/lib/electron-node/remote-connection-service';
 import { CppBuildServer, CppBuildClient, DetectedBuildSystem } from '../common/cpp-build-protocol';
 import { BuildConfigurationOptions, BuildTarget, DebugLaunchInfo } from '../common/build-system-model';
 import { BuildSystemRegistry } from './build-system-registry';
+import { getRemoteConnection } from './build-executor';
 import { getWorkspaceRootPath, writeClangdConfig } from './process-utils';
 
 @injectable()
@@ -20,6 +22,9 @@ export class CppBuildServerImpl implements CppBuildServer {
 
     @inject(BuildSystemRegistry)
     protected readonly registry: BuildSystemRegistry;
+
+    @inject(RemoteConnectionService) @optional()
+    protected readonly remoteConnectionService?: RemoteConnectionService;
 
     protected client?: CppBuildClient;
     protected readonly systems = new Map<string, Awaited<ReturnType<BuildSystemRegistry['detect']>>>();
@@ -71,8 +76,8 @@ export class CppBuildServerImpl implements CppBuildServer {
         if (!system) {
             return undefined;
         }
-        const path = await system.getCompileCommandsPath(options);
-        return path?.toString();
+        const compileCommandsPath = await system.getCompileCommandsPath(options);
+        return compileCommandsPath?.toString();
     }
 
     async getBuildTargets(root: string, options?: BuildConfigurationOptions): Promise<BuildTarget[]> {
@@ -101,8 +106,9 @@ export class CppBuildServerImpl implements CppBuildServer {
             return;
         }
         const compileCommandsDir = path.dirname(getWorkspaceRootPath(compileCommandsPath.toString()));
-        const workspaceRoot = getWorkspaceRootPath(root);
-        await writeClangdConfig(workspaceRoot, compileCommandsDir);
+        const rootUri = new URI(root);
+        const connection = getRemoteConnection(this.remoteConnectionService, root);
+        await writeClangdConfig(rootUri, compileCommandsDir, connection);
         this.client?.onBuildOutput(root, `Generated .clangd with CompilationDatabase: ${compileCommandsDir}`);
     }
 
