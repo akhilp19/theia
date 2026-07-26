@@ -10,6 +10,7 @@
 import { ContainerModule } from '@theia/core/shared/inversify';
 import { bindRootContributionProvider } from '@theia/core/lib/common';
 import { ConnectionHandler, RpcConnectionHandler } from '@theia/core/lib/common/messaging';
+import { DebugAdapterContribution } from '@theia/debug/lib/common/debug-model';
 import { CppBuildServer, CppBuildClient, cppBuildPath } from '../common/cpp-build-protocol';
 import { CppBuildServerImpl } from './cpp-build-server';
 import { BuildSystemRegistry } from './build-system-registry';
@@ -18,6 +19,7 @@ import { CMakeBuildSystemAdapter } from './adapters/cmake-adapter';
 import { BazelBuildSystemAdapter } from './adapters/bazel-adapter';
 import { MesonBuildSystemAdapter } from './adapters/meson-adapter';
 import { MakeBuildSystemAdapter } from './adapters/make-adapter';
+import { CppDebugAdapterContribution } from './cpp-debug-adapter-contribution';
 
 export default new ContainerModule(bind => {
     bind(CppBuildServerImpl).toSelf().inSingletonScope();
@@ -29,6 +31,9 @@ export default new ContainerModule(bind => {
     bind(BuildSystemAdapter).to(BazelBuildSystemAdapter).inSingletonScope();
     bind(BuildSystemAdapter).to(MesonBuildSystemAdapter).inSingletonScope();
     bind(BuildSystemAdapter).to(MakeBuildSystemAdapter).inSingletonScope();
+
+    bind(CppDebugAdapterContribution).toSelf().inSingletonScope();
+    bind(DebugAdapterContribution).toService(CppDebugAdapterContribution);
 
     bind(ConnectionHandler).toDynamicValue(ctx =>
         new RpcConnectionHandler<CppBuildClient>(cppBuildPath, client => {

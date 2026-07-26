@@ -30,6 +30,8 @@ This extension detects and drives C/C++ build systems from within Theia. It is t
 - `C/C++: Clean Project`
 - `C/C++: Show Compile Commands Path`
 - `C/C++: Show Build Targets`
+- `C/C++: Generate .clangd Config`
+- `C/C++: Debug Selected Target`
 
 ## Default keybindings
 
@@ -47,3 +49,4 @@ Keybindings can be customized in Theia's keyboard shortcuts editor or `keybindin
 - Phase B (detection service) complete: CMake preset/variant detection and compile_commands.json resolution implemented.
 - Phase C (build execution & output) complete: configure/build/clean invoke real processes and stream output to a **C/C++ Build** output channel.
 - Phase D (clangd wiring) complete: `.clangd` config is auto-generated after configure/build with the resolved `CompilationDatabase` path.
+- Phase E (debug integration) complete: `cppdbg` debug adapter contribution and `Debug Selected Target` command launch gdb/lldb from a build target.

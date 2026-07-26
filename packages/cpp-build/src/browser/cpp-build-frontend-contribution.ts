@@ -18,6 +18,7 @@ import {
 } from '@theia/core/lib/common';
 import { FrontendApplicationContribution, KeybindingContribution, KeybindingRegistry, QuickInputService, QuickPickItem } from '@theia/core/lib/browser';
 import { OutputChannelManager } from '@theia/output/lib/browser/output-channel';
+import { DebugSessionManager } from '@theia/debug/lib/browser/debug-session-manager';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { CppBuildService } from './cpp-build-service';
 import { BuildConfigurationOptions, BuildTarget } from '../common/build-system-model';
@@ -55,6 +56,10 @@ export namespace CppBuildCommands {
         id: 'cppBuild.showBuildTargets',
         label: nls.localize('theia/cpp-build/showBuildTargets', 'C/C++: Show Build Targets')
     };
+    export const DEBUG_SELECTED_TARGET = {
+        id: 'cppBuild.debugSelectedTarget',
+        label: nls.localize('theia/cpp-build/debugSelectedTarget', 'C/C++: Debug Selected Target')
+    };
 }
 
 @injectable()
@@ -74,6 +79,9 @@ export class CppBuildFrontendContribution implements CommandContribution, MenuCo
 
     @inject(OutputChannelManager)
     protected readonly outputChannelManager: OutputChannelManager;
+
+    @inject(DebugSessionManager)
+    protected readonly debugSessionManager: DebugSessionManager;
 
     protected activeOptions = new Map<string, BuildConfigurationOptions>();
     protected outputChannel?: ReturnType<OutputChannelManager['getChannel']>;
@@ -242,6 +250,59 @@ export class CppBuildFrontendContribution implements CommandContribution, MenuCo
                     return;
                 }
                 this.messageService.info(`Build targets: ${targets.map(t => t.name).join(', ')}`);
+            }
+        });
+
+        commands.registerCommand(CppBuildCommands.DEBUG_SELECTED_TARGET, {
+            execute: async () => {
+                const root = this.getWorkspaceRoot();
+                if (!root) {
+                    this.messageService.warn('No workspace open.');
+                    return;
+                }
+                const options = this.activeOptions.get(root.toString());
+                const targets = await this.buildService.getBuildTargets(root, options);
+                if (targets.length === 0) {
+                    this.messageService.warn('No build targets found. Run configure/build first.');
+                    return;
+                }
+
+                const selected = await this.quickInputService.showQuickPick(
+                    targets.map(target => ({
+                        label: target.name,
+                        description: `${target.type} — ${target.outputPath ?? target.sourceFiles[0] ?? ''}`,
+                        target
+                    })),
+                    { placeHolder: 'Select a target to debug' }
+                );
+
+                if (!selected) {
+                    return;
+                }
+
+                const debugInfo = await this.buildService.getDebugInfo(root, selected.target.name, options);
+                if (!debugInfo) {
+                    this.messageService.warn(`Could not resolve debug info for ${selected.target.name}.`);
+                    return;
+                }
+
+                await this.debugSessionManager.start({
+                    name: `Debug ${selected.target.name}`,
+                    workspaceFolderUri: root.toString(),
+                    configuration: {
+                        type: 'cppdbg',
+                        request: 'launch',
+                        name: `Debug ${selected.target.name}`,
+                        program: debugInfo.program,
+                        args: debugInfo.args ?? [],
+                        cwd: debugInfo.cwd ?? root.toString(),
+                        MIMode: debugInfo.debugger === 'lldb' ? 'lldb' : 'gdb',
+                        miDebuggerPath: debugInfo.debuggerPath,
+                        environment: debugInfo.environment ? Object.entries(debugInfo.environment).map(([name, value]) => ({ name, value: value ?? '' })) : [],
+                        stopAtEntry: false,
+                        externalConsole: false
+                    }
+                });
             }
         });
     }
