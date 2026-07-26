@@ -43,6 +43,10 @@ export class MakeBuildSystem implements BuildSystem {
         return true;
     }
 
+    async getConfigurationOptions(): Promise<BuildConfigurationOptions[]> {
+        return [{ target: 'all' }];
+    }
+
     async build(options?: BuildConfigurationOptions): Promise<void> {
         console.log(`Building Make project at ${this.root.toString()}, target ${options?.target ?? 'all'}`);
     }
@@ -60,7 +64,7 @@ export class MakeBuildSystem implements BuildSystem {
         return undefined;
     }
 
-    async getBuildTargets?(): Promise<{ name: string; type: 'executable' | 'library' | 'test' | 'custom'; sourceFiles: string[]; compileCommands: CompileCommand[] }[]> {
+    async getBuildTargets?(): Promise<BuildTarget[]> {
         return [];
     }
 }

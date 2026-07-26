@@ -9,8 +9,8 @@
 
 import { injectable, inject } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
-import { CppBuildServer, CppBuildClient } from '../common/cpp-build-protocol';
-import { BuildConfigurationOptions, BuildSystemType, BuildTarget, DebugLaunchInfo } from '../common/build-system-model';
+import { CppBuildServer, CppBuildClient, DetectedBuildSystem } from '../common/cpp-build-protocol';
+import { BuildConfigurationOptions, BuildTarget, DebugLaunchInfo } from '../common/build-system-model';
 import { BuildSystemRegistry } from './build-system-registry';
 
 @injectable()
@@ -20,6 +20,7 @@ export class CppBuildServerImpl implements CppBuildServer {
     protected readonly registry: BuildSystemRegistry;
 
     protected client?: CppBuildClient;
+    protected readonly systems = new Map<string, Awaited<ReturnType<BuildSystemRegistry['detect']>>>();
 
     setClient(client: CppBuildClient): void {
         this.client = client;
@@ -27,32 +28,57 @@ export class CppBuildServerImpl implements CppBuildServer {
 
     dispose(): void {
         this.client = undefined;
+        this.systems.clear();
     }
 
     protected async getBuildSystem(root: string) {
-        return this.registry.detect(new URI(root));
+        let system = this.systems.get(root);
+        if (!system) {
+            system = await this.registry.detect(new URI(root));
+            if (system) {
+                this.systems.set(root, system);
+            }
+        }
+        return system;
     }
 
-    async detectBuildSystem(root: string): Promise<BuildSystemType | undefined> {
-        const system = await this.getBuildSystem(root);
-        return system?.type;
-    }
-
-    async getCompileCommandsPath(root: string): Promise<string | undefined> {
+    async detectBuildSystem(root: string): Promise<DetectedBuildSystem | undefined> {
         const system = await this.getBuildSystem(root);
         if (!system) {
             return undefined;
         }
-        const path = await system.getCompileCommandsPath();
+        const compileCommandsPath = await system.getCompileCommandsPath();
+        return {
+            type: system.type,
+            name: system.name,
+            buildDirectory: system.buildDirectory?.toString(),
+            compileCommandsPath: compileCommandsPath?.toString()
+        };
+    }
+
+    async getConfigurationOptions(root: string): Promise<BuildConfigurationOptions[]> {
+        const system = await this.getBuildSystem(root);
+        if (!system || !system.getConfigurationOptions) {
+            return [];
+        }
+        return system.getConfigurationOptions();
+    }
+
+    async getCompileCommandsPath(root: string, options?: BuildConfigurationOptions): Promise<string | undefined> {
+        const system = await this.getBuildSystem(root);
+        if (!system) {
+            return undefined;
+        }
+        const path = await system.getCompileCommandsPath(options);
         return path?.toString();
     }
 
-    async getBuildTargets(root: string): Promise<BuildTarget[]> {
+    async getBuildTargets(root: string, options?: BuildConfigurationOptions): Promise<BuildTarget[]> {
         const system = await this.getBuildSystem(root);
         if (!system || !system.getBuildTargets) {
             return [];
         }
-        return system.getBuildTargets();
+        return system.getBuildTargets(options);
     }
 
     async configure(root: string, options?: BuildConfigurationOptions): Promise<void> {
@@ -85,12 +111,12 @@ export class CppBuildServerImpl implements CppBuildServer {
         }
     }
 
-    async getDebugInfo(root: string, targetName: string): Promise<DebugLaunchInfo | undefined> {
+    async getDebugInfo(root: string, targetName: string, options?: BuildConfigurationOptions): Promise<DebugLaunchInfo | undefined> {
         const system = await this.getBuildSystem(root);
         if (!system || !system.getBuildTargets) {
             return undefined;
         }
-        const targets = await system.getBuildTargets();
+        const targets = await system.getBuildTargets(options);
         const target = targets.find(t => t.name === targetName);
         if (!target || !system.getDebugInfo) {
             return undefined;

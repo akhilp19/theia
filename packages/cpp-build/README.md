@@ -8,26 +8,29 @@ This extension detects and drives C/C++ build systems from within Theia. It is t
 
 ## Supported build systems
 
-| System | Detection | Configure | Build | Compile commands |
-|--------|-----------|-----------|-------|------------------|
-| CMake  | `CMakeLists.txt` | Planned | Planned | `build/compile_commands.json` |
-| Bazel  | `WORKSPACE`, `MODULE.bazel` | - | Planned | `compile_commands.json` |
-| Meson  | `meson.build` | Planned | Planned | `builddir/compile_commands.json` |
-| Make   | `Makefile` | - | Planned | `compile_commands.json` |
+| System | Detection | Presets/Variants | Configure | Build | Compile commands | Targets |
+|--------|-----------|------------------|-----------|-------|------------------|---------|
+| CMake  | `CMakeLists.txt` | `CMakePresets.json`, standard variants | In progress | In progress | `build/compile_commands.json` | From compile_commands.json |
+| Bazel  | `WORKSPACE`, `MODULE.bazel` | Target selection | Planned | Planned | `compile_commands.json` | Planned |
+| Meson  | `meson.build` | `debug`/`release` | Planned | Planned | `builddir/compile_commands.json` | Planned |
+| Make   | `Makefile` | Target selection | - | Planned | `compile_commands.json` | Planned |
 
 ## Architecture
 
 - `common/` — RPC protocol, preference schema, and build-system models.
-- `browser/` — frontend commands, status bar, workspace detection, and service proxy.
-- `node/` — backend server, build-system registry, and per-system adapters.
+- `browser/` — frontend commands, quick-pick preset selection, status bar, workspace detection, and service proxy.
+- `node/` — backend server, build-system registry, per-system adapters, and process utilities.
 
 ## Commands
 
 - `C/C++: Detect Build System`
+- `C/C++: Select Build Preset`
 - `C/C++: Configure Project`
 - `C/C++: Build Project`
 - `C/C++: Show Compile Commands Path`
+- `C/C++: Show Build Targets`
 
 ## Status
 
-This is a scaffold. The CMake adapter is the first target for full implementation.
+- Phase A (scaffold) complete.
+- Phase B (detection service) in progress: CMake preset/variant detection and compile_commands.json resolution implemented.

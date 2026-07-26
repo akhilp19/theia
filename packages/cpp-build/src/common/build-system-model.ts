@@ -27,16 +27,25 @@ export interface BuildTarget {
     readonly compileCommands: CompileCommand[];
 }
 
+export interface BuildPreset {
+    readonly name: string;
+    readonly displayName?: string;
+    readonly description?: string;
+    readonly variant?: string;
+    readonly buildDirectory?: string;
+}
+
 export interface BuildSystem {
     readonly type: BuildSystemType;
     readonly name: string;
     readonly root: URI;
     readonly buildDirectory?: URI;
     detect(): Promise<boolean>;
+    getConfigurationOptions?(): Promise<BuildConfigurationOptions[]>;
     configure?(options?: BuildConfigurationOptions): Promise<void>;
-    build?(target?: string, options?: BuildConfigurationOptions): Promise<void>;
-    getCompileCommandsPath(): Promise<URI | undefined>;
-    getBuildTargets?(): Promise<BuildTarget[]>;
+    build?(options?: BuildConfigurationOptions): Promise<void>;
+    getCompileCommandsPath(options?: BuildConfigurationOptions): Promise<URI | undefined>;
+    getBuildTargets?(options?: BuildConfigurationOptions): Promise<BuildTarget[]>;
     getDebugInfo?(target: BuildTarget): Promise<DebugLaunchInfo | undefined>;
 }
 

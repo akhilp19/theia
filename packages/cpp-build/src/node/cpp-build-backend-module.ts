@@ -10,7 +10,6 @@
 import { ContainerModule } from '@theia/core/shared/inversify';
 import { bindRootContributionProvider } from '@theia/core/lib/common';
 import { ConnectionHandler, RpcConnectionHandler } from '@theia/core/lib/common/messaging';
-import { BackendApplicationContribution } from '@theia/core/lib/node';
 import { CppBuildServer, CppBuildClient, cppBuildPath } from '../common/cpp-build-protocol';
 import { CppBuildServerImpl } from './cpp-build-server';
 import { BuildSystemRegistry } from './build-system-registry';
@@ -39,6 +38,4 @@ export default new ContainerModule(bind => {
             return server;
         })
     ).inSingletonScope();
-
-    bind(BackendApplicationContribution).toService(CppBuildServerImpl);
 });

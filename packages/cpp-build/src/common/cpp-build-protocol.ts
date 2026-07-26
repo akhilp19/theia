@@ -8,19 +8,26 @@
 // *****************************************************************************
 
 import { RpcServer } from '@theia/core/lib/common/messaging';
-import URI from '@theia/core/lib/common/uri';
 import { BuildSystemType, BuildTarget, BuildConfigurationOptions, DebugLaunchInfo } from './build-system-model';
 
 export const cppBuildPath = '/services/cpp-build';
 
+export interface DetectedBuildSystem {
+    readonly type: BuildSystemType;
+    readonly name: string;
+    readonly buildDirectory?: string;
+    readonly compileCommandsPath?: string;
+}
+
 export const CppBuildServer = Symbol('CppBuildServer');
 export interface CppBuildServer extends RpcServer<CppBuildClient> {
-    detectBuildSystem(root: string): Promise<BuildSystemType | undefined>;
-    getCompileCommandsPath(root: string): Promise<string | undefined>;
-    getBuildTargets(root: string): Promise<BuildTarget[]>;
+    detectBuildSystem(root: string): Promise<DetectedBuildSystem | undefined>;
+    getConfigurationOptions(root: string): Promise<BuildConfigurationOptions[]>;
+    getCompileCommandsPath(root: string, options?: BuildConfigurationOptions): Promise<string | undefined>;
+    getBuildTargets(root: string, options?: BuildConfigurationOptions): Promise<BuildTarget[]>;
     configure(root: string, options?: BuildConfigurationOptions): Promise<void>;
     build(root: string, options?: BuildConfigurationOptions): Promise<void>;
-    getDebugInfo(root: string, targetName: string): Promise<DebugLaunchInfo | undefined>;
+    getDebugInfo(root: string, targetName: string, options?: BuildConfigurationOptions): Promise<DebugLaunchInfo | undefined>;
     dispose(): void;
 }
 

@@ -43,6 +43,10 @@ export class BazelBuildSystem implements BuildSystem {
         return true;
     }
 
+    async getConfigurationOptions(): Promise<BuildConfigurationOptions[]> {
+        return [{ target: '//...' }];
+    }
+
     async build(options?: BuildConfigurationOptions): Promise<void> {
         console.log(`Building Bazel project at ${this.root.toString()}, target ${options?.target ?? '//...'}`);
     }
@@ -52,7 +56,7 @@ export class BazelBuildSystem implements BuildSystem {
         return (await exists(path)) ? path : undefined;
     }
 
-    async getBuildTargets?(): Promise<{ name: string; type: 'executable' | 'library' | 'test' | 'custom'; sourceFiles: string[]; compileCommands: CompileCommand[] }[]> {
+    async getBuildTargets?(): Promise<BuildTarget[]> {
         return [];
     }
 }

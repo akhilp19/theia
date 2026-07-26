@@ -45,6 +45,10 @@ export class MesonBuildSystem implements BuildSystem {
         return true;
     }
 
+    async getConfigurationOptions(): Promise<BuildConfigurationOptions[]> {
+        return [{ variant: 'debug' }, { variant: 'release' }];
+    }
+
     async configure(options?: BuildConfigurationOptions): Promise<void> {
         console.log(`Configuring Meson project at ${this.root.toString()} with variant ${options?.variant ?? 'debug'}`);
     }
@@ -61,7 +65,7 @@ export class MesonBuildSystem implements BuildSystem {
         return undefined;
     }
 
-    async getBuildTargets?(): Promise<{ name: string; type: 'executable' | 'library' | 'test' | 'custom'; sourceFiles: string[]; compileCommands: CompileCommand[] }[]> {
+    async getBuildTargets?(): Promise<BuildTarget[]> {
         return [];
     }
 }

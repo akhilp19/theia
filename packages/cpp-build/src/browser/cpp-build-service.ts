@@ -10,12 +10,15 @@
 import { injectable, inject } from '@theia/core/shared/inversify';
 import { Emitter } from '@theia/core/lib/common';
 import URI from '@theia/core/lib/common/uri';
-import { CppBuildClient, CppBuildServer } from '../common/cpp-build-protocol';
+import { CppBuildClient, CppBuildServer, DetectedBuildSystem } from '../common/cpp-build-protocol';
 import { BuildConfigurationOptions, BuildSystemType, BuildTarget, DebugLaunchInfo } from '../common/build-system-model';
 
 export interface ActiveBuildSystem {
     root: URI;
     type: BuildSystemType;
+    name: string;
+    buildDirectory?: string;
+    compileCommandsPath?: string;
 }
 
 @injectable()
@@ -32,22 +35,32 @@ export class CppBuildService implements CppBuildClient {
 
     protected activeBuildSystem?: ActiveBuildSystem;
 
-    async detectBuildSystem(root: URI): Promise<BuildSystemType | undefined> {
-        const type = await this.server.detectBuildSystem(root.toString());
-        if (type) {
-            this.activeBuildSystem = { root, type };
+    async detectBuildSystem(root: URI): Promise<DetectedBuildSystem | undefined> {
+        const detected = await this.server.detectBuildSystem(root.toString());
+        if (detected) {
+            this.activeBuildSystem = {
+                root,
+                type: detected.type,
+                name: detected.name,
+                buildDirectory: detected.buildDirectory,
+                compileCommandsPath: detected.compileCommandsPath
+            };
             this.onActiveBuildSystemChangedEmitter.fire(this.activeBuildSystem);
         }
-        return type;
+        return detected;
     }
 
-    async getCompileCommandsPath(root: URI): Promise<URI | undefined> {
-        const path = await this.server.getCompileCommandsPath(root.toString());
+    async getConfigurationOptions(root: URI): Promise<BuildConfigurationOptions[]> {
+        return this.server.getConfigurationOptions(root.toString());
+    }
+
+    async getCompileCommandsPath(root: URI, options?: BuildConfigurationOptions): Promise<URI | undefined> {
+        const path = await this.server.getCompileCommandsPath(root.toString(), options);
         return path ? new URI(path) : undefined;
     }
 
-    async getBuildTargets(root: URI): Promise<BuildTarget[]> {
-        return this.server.getBuildTargets(root.toString());
+    async getBuildTargets(root: URI, options?: BuildConfigurationOptions): Promise<BuildTarget[]> {
+        return this.server.getBuildTargets(root.toString(), options);
     }
 
     async configure(root: URI, options?: BuildConfigurationOptions): Promise<void> {
@@ -58,8 +71,8 @@ export class CppBuildService implements CppBuildClient {
         await this.server.build(root.toString(), options);
     }
 
-    async getDebugInfo(root: URI, targetName: string): Promise<DebugLaunchInfo | undefined> {
-        return this.server.getDebugInfo(root.toString(), targetName);
+    async getDebugInfo(root: URI, targetName: string, options?: BuildConfigurationOptions): Promise<DebugLaunchInfo | undefined> {
+        return this.server.getDebugInfo(root.toString(), targetName, options);
     }
 
     onBuildOutput(root: string, data: string): void {

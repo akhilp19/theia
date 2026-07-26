@@ -13,24 +13,6 @@
       "path": "../core"
     },
     {
-      "path": "../debug"
-    },
-    {
-      "path": "../output"
-    },
-    {
-      "path": "../process"
-    },
-    {
-      "path": "../remote"
-    },
-    {
-      "path": "../task"
-    },
-    {
-      "path": "../terminal"
-    },
-    {
       "path": "../workspace"
     }
   ]
