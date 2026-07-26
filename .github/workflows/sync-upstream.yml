@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: 'Branch to sync into (default: main)'
+        description: 'Branch to sync into (default: master)'
         required: false
-        default: 'main'
+        default: 'master'
 
 permissions:
   contents: write
@@ -36,11 +36,11 @@ jobs:
 
       - name: Merge upstream changes
         run: |
-          TARGET_BRANCH="${{ github.event.inputs.branch || 'main' }}"
+          TARGET_BRANCH="${{ github.event.inputs.branch || 'master' }}"
           git checkout "$TARGET_BRANCH"
           git merge "upstream/$TARGET_BRANCH" --no-edit
 
       - name: Push to fork
         run: |
-          TARGET_BRANCH="${{ github.event.inputs.branch || 'main' }}"
+          TARGET_BRANCH="${{ github.event.inputs.branch || 'master' }}"
           git push origin "$TARGET_BRANCH"
