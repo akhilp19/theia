@@ -7,9 +7,9 @@
 // SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-only WITH Classpath-exception-2.0
 // *****************************************************************************
 
-import { injectable, inject } from '@theia/core/shared/inversify';
+import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
-import { FileService } from '@theia/filesystem/lib/browser/file-service';
+import { promises as fs } from 'fs';
 import { BuildSystemAdapter } from '../build-system-adapter';
 import { BuildConfigurationOptions, BuildSystem, BuildSystemType, CompileCommand } from '../../common/build-system-model';
 
@@ -20,24 +20,12 @@ export class CMakeBuildSystemAdapter implements BuildSystemAdapter {
     readonly name = 'CMake';
     readonly priority = 100;
 
-    @inject(FileService)
-    protected readonly fileService: FileService;
-
     async canHandle(root: URI): Promise<boolean> {
-        return this.exists(root.resolve('CMakeLists.txt'));
+        return exists(root.resolve('CMakeLists.txt'));
     }
 
     async createBuildSystem(root: URI): Promise<BuildSystem> {
-        return new CMakeBuildSystem(root, this.fileService);
-    }
-
-    protected async exists(uri: URI): Promise<boolean> {
-        try {
-            const stat = await this.fileService.resolve(uri);
-            return !stat.isDirectory;
-        } catch {
-            return false;
-        }
+        return new CMakeBuildSystem(root);
     }
 }
 
@@ -48,7 +36,6 @@ export class CMakeBuildSystem implements BuildSystem {
 
     constructor(
         readonly root: URI,
-        protected readonly fileService: FileService,
         readonly buildDirectory?: URI
     ) {
         this.buildDirectory = buildDirectory ?? root.resolve('build');
@@ -70,7 +57,7 @@ export class CMakeBuildSystem implements BuildSystem {
 
     async getCompileCommandsPath(): Promise<URI | undefined> {
         const path = this.buildDirectory!.resolve('compile_commands.json');
-        if (await this.exists(path)) {
+        if (await exists(path)) {
             return path;
         }
         return undefined;
@@ -80,13 +67,13 @@ export class CMakeBuildSystem implements BuildSystem {
         // Placeholder: parse CMake API reply or cmake --target help output.
         return [];
     }
+}
 
-    protected async exists(uri: URI): Promise<boolean> {
-        try {
-            const stat = await this.fileService.resolve(uri);
-            return !stat.isDirectory;
-        } catch {
-            return false;
-        }
+async function exists(uri: URI): Promise<boolean> {
+    try {
+        const stat = await fs.stat(uri.path.toString());
+        return stat.isFile();
+    } catch {
+        return false;
     }
 }

@@ -7,9 +7,9 @@
 // SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-only WITH Classpath-exception-2.0
 // *****************************************************************************
 
-import { injectable, inject } from '@theia/core/shared/inversify';
+import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
-import { FileService } from '@theia/filesystem/lib/browser/file-service';
+import { promises as fs } from 'fs';
 import { BuildSystemAdapter } from '../build-system-adapter';
 import { BuildConfigurationOptions, BuildSystem, BuildSystemType, CompileCommand } from '../../common/build-system-model';
 
@@ -20,24 +20,12 @@ export class MakeBuildSystemAdapter implements BuildSystemAdapter {
     readonly name = 'Make';
     readonly priority = 10;
 
-    @inject(FileService)
-    protected readonly fileService: FileService;
-
     async canHandle(root: URI): Promise<boolean> {
-        return this.exists(root.resolve('Makefile')) || this.exists(root.resolve('makefile'));
+        return exists(root.resolve('Makefile')) || exists(root.resolve('makefile'));
     }
 
     async createBuildSystem(root: URI): Promise<BuildSystem> {
-        return new MakeBuildSystem(root, this.fileService);
-    }
-
-    protected async exists(uri: URI): Promise<boolean> {
-        try {
-            const stat = await this.fileService.resolve(uri);
-            return !stat.isDirectory;
-        } catch {
-            return false;
-        }
+        return new MakeBuildSystem(root);
     }
 }
 
@@ -48,8 +36,7 @@ export class MakeBuildSystem implements BuildSystem {
     readonly buildDirectory?: URI;
 
     constructor(
-        readonly root: URI,
-        protected readonly fileService: FileService
+        readonly root: URI
     ) { }
 
     async detect(): Promise<boolean> {
@@ -66,7 +53,7 @@ export class MakeBuildSystem implements BuildSystem {
             this.root.resolve('build/compile_commands.json')
         ];
         for (const path of candidates) {
-            if (await this.exists(path)) {
+            if (await exists(path)) {
                 return path;
             }
         }
@@ -76,13 +63,13 @@ export class MakeBuildSystem implements BuildSystem {
     async getBuildTargets?(): Promise<{ name: string; type: 'executable' | 'library' | 'test' | 'custom'; sourceFiles: string[]; compileCommands: CompileCommand[] }[]> {
         return [];
     }
+}
 
-    protected async exists(uri: URI): Promise<boolean> {
-        try {
-            const stat = await this.fileService.resolve(uri);
-            return !stat.isDirectory;
-        } catch {
-            return false;
-        }
+async function exists(uri: URI): Promise<boolean> {
+    try {
+        const stat = await fs.stat(uri.path.toString());
+        return stat.isFile();
+    } catch {
+        return false;
     }
 }
