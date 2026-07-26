@@ -53,6 +53,7 @@
     "@theia/collaboration": "1.73.0",
     "@theia/console": "1.73.0",
     "@theia/core": "1.73.0",
+    "@theia/cpp-build": "1.73.0",
     "@theia/debug": "1.73.0",
     "@theia/dev-container": "1.73.0",
     "@theia/editor": "1.73.0",

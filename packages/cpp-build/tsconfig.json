@@ -1,0 +1,40 @@
+{
+  "extends": "../../configs/base.tsconfig",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "src",
+    "outDir": "lib"
+  },
+  "include": [
+    "src"
+  ],
+  "references": [
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../debug"
+    },
+    {
+      "path": "../filesystem"
+    },
+    {
+      "path": "../output"
+    },
+    {
+      "path": "../process"
+    },
+    {
+      "path": "../remote"
+    },
+    {
+      "path": "../task"
+    },
+    {
+      "path": "../terminal"
+    },
+    {
+      "path": "../workspace"
+    }
+  ]
+}
