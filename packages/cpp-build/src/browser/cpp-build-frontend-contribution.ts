@@ -38,6 +38,10 @@ export namespace CppBuildCommands {
         id: 'cppBuild.build',
         label: nls.localize('theia/cpp-build/build', 'C/C++: Build Project')
     };
+    export const CLEAN = {
+        id: 'cppBuild.clean',
+        label: nls.localize('theia/cpp-build/clean', 'C/C++: Clean Project')
+    };
     export const SHOW_COMPILE_COMMANDS_PATH = {
         id: 'cppBuild.showCompileCommandsPath',
         label: nls.localize('theia/cpp-build/showCompileCommandsPath', 'C/C++: Show Compile Commands Path')
@@ -149,6 +153,19 @@ export class CppBuildFrontendContribution implements CommandContribution, MenuCo
                 const options = this.activeOptions.get(root.toString());
                 await this.buildService.build(root, options);
                 this.messageService.info('C/C++ build finished.');
+            }
+        });
+
+        commands.registerCommand(CppBuildCommands.CLEAN, {
+            execute: async () => {
+                const root = this.getWorkspaceRoot();
+                if (!root) {
+                    this.messageService.warn('No workspace open.');
+                    return;
+                }
+                const options = this.activeOptions.get(root.toString());
+                await this.buildService.clean(root, options);
+                this.messageService.info('C/C++ project cleaned.');
             }
         });
 

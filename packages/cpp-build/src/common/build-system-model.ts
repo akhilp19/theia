@@ -44,6 +44,7 @@ export interface BuildSystem {
     getConfigurationOptions?(): Promise<BuildConfigurationOptions[]>;
     configure?(options?: BuildConfigurationOptions): Promise<void>;
     build?(options?: BuildConfigurationOptions): Promise<void>;
+    clean?(options?: BuildConfigurationOptions): Promise<void>;
     getCompileCommandsPath(options?: BuildConfigurationOptions): Promise<URI | undefined>;
     getBuildTargets?(options?: BuildConfigurationOptions): Promise<BuildTarget[]>;
     getDebugInfo?(target: BuildTarget): Promise<DebugLaunchInfo | undefined>;

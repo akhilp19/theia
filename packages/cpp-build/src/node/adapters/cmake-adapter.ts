@@ -156,6 +156,17 @@ export class CMakeBuildSystem implements BuildSystem {
         }
     }
 
+    async clean(options?: BuildConfigurationOptions): Promise<void> {
+        const rootPath = getWorkspaceRootPath(this.root.toString());
+        const buildDir = this.resolveBuildDirectory(options);
+        const args = ['--build', buildDir, '--target', 'clean'];
+
+        const result = await runCommand('cmake', args, rootPath);
+        if (result.exitCode !== 0) {
+            throw new Error(`CMake clean failed: ${result.stderr || result.stdout}`);
+        }
+    }
+
     async getCompileCommandsPath(options?: BuildConfigurationOptions): Promise<URI | undefined> {
         const buildDir = this.resolveBuildDirectory(options);
         const candidate = path.join(buildDir, 'compile_commands.json');

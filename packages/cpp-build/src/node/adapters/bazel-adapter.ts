@@ -12,6 +12,7 @@ import URI from '@theia/core/lib/common/uri';
 import { promises as fs } from 'fs';
 import { BuildSystemAdapter } from '../build-system-adapter';
 import { BuildConfigurationOptions, BuildSystem, BuildSystemType, CompileCommand } from '../../common/build-system-model';
+import { exists, getWorkspaceRootPath, runCommand } from '../process-utils';
 
 @injectable()
 export class BazelBuildSystemAdapter implements BuildSystemAdapter {
@@ -49,6 +50,14 @@ export class BazelBuildSystem implements BuildSystem {
 
     async build(options?: BuildConfigurationOptions): Promise<void> {
         console.log(`Building Bazel project at ${this.root.toString()}, target ${options?.target ?? '//...'}`);
+    }
+
+    async clean(): Promise<void> {
+        const rootPath = getWorkspaceRootPath(this.root.toString());
+        const result = await runCommand('bazel', ['clean'], rootPath);
+        if (result.exitCode !== 0) {
+            throw new Error(`Bazel clean failed: ${result.stderr || result.stdout}`);
+        }
     }
 
     async getCompileCommandsPath(): Promise<URI | undefined> {

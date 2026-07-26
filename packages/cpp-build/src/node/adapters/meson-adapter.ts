@@ -10,8 +10,10 @@
 import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { promises as fs } from 'fs';
+import * as path from 'path';
 import { BuildSystemAdapter } from '../build-system-adapter';
 import { BuildConfigurationOptions, BuildSystem, BuildSystemType, CompileCommand } from '../../common/build-system-model';
+import { exists, getWorkspaceRootPath, runCommand } from '../process-utils';
 
 @injectable()
 export class MesonBuildSystemAdapter implements BuildSystemAdapter {
@@ -55,6 +57,15 @@ export class MesonBuildSystem implements BuildSystem {
 
     async build(options?: BuildConfigurationOptions): Promise<void> {
         console.log(`Building Meson project at ${this.root.toString()}, target ${options?.target ?? 'all'}`);
+    }
+
+    async clean(): Promise<void> {
+        const rootPath = getWorkspaceRootPath(this.root.toString());
+        const buildDir = this.buildDirectory ? getWorkspaceRootPath(this.buildDirectory.toString()) : path.join(rootPath, 'builddir');
+        const result = await runCommand('meson', ['compile', '--clean', '-C', buildDir], rootPath);
+        if (result.exitCode !== 0) {
+            throw new Error(`Meson clean failed: ${result.stderr || result.stdout}`);
+        }
     }
 
     async getCompileCommandsPath(): Promise<URI | undefined> {

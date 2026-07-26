@@ -27,6 +27,7 @@ This extension detects and drives C/C++ build systems from within Theia. It is t
 - `C/C++: Select Build Preset`
 - `C/C++: Configure Project`
 - `C/C++: Build Project`
+- `C/C++: Clean Project`
 - `C/C++: Show Compile Commands Path`
 - `C/C++: Show Build Targets`
 

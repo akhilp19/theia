@@ -111,6 +111,21 @@ export class CppBuildServerImpl implements CppBuildServer {
         }
     }
 
+    async clean(root: string, options?: BuildConfigurationOptions): Promise<void> {
+        const system = await this.getBuildSystem(root);
+        if (!system || !system.clean) {
+            throw new Error('Clean is not supported for the detected build system.');
+        }
+        this.client?.onBuildEvent(root, { type: 'started' });
+        try {
+            await system.clean(options);
+            this.client?.onBuildEvent(root, { type: 'finished' });
+        } catch (err) {
+            this.client?.onBuildEvent(root, { type: 'failed', message: String(err) });
+            throw err;
+        }
+    }
+
     async getDebugInfo(root: string, targetName: string, options?: BuildConfigurationOptions): Promise<DebugLaunchInfo | undefined> {
         const system = await this.getBuildSystem(root);
         if (!system || !system.getBuildTargets) {

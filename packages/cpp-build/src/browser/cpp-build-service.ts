@@ -71,6 +71,10 @@ export class CppBuildService implements CppBuildClient {
         await this.server.build(root.toString(), options);
     }
 
+    async clean(root: URI, options?: BuildConfigurationOptions): Promise<void> {
+        await this.server.clean(root.toString(), options);
+    }
+
     async getDebugInfo(root: URI, targetName: string, options?: BuildConfigurationOptions): Promise<DebugLaunchInfo | undefined> {
         return this.server.getDebugInfo(root.toString(), targetName, options);
     }
