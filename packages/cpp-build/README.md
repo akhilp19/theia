@@ -31,6 +31,16 @@ This extension detects and drives C/C++ build systems from within Theia. It is t
 - `C/C++: Show Compile Commands Path`
 - `C/C++: Show Build Targets`
 
+## Default keybindings
+
+| Command | Keybinding |
+|---------|------------|
+| `C/C++: Build Project` | `Ctrl/Cmd + Shift + B` |
+| `C/C++: Clean Project` | `Ctrl/Cmd + Shift + Alt + B` |
+| `C/C++: Configure Project` | `Ctrl/Cmd + Shift + F9` |
+
+Keybindings can be customized in Theia's keyboard shortcuts editor or `keybindings.json`.
+
 ## Status
 
 - Phase A (scaffold) complete.

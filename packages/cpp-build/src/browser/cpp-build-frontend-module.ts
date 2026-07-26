@@ -9,7 +9,7 @@
 
 import { ContainerModule } from '@theia/core/shared/inversify';
 import { CommandContribution, MenuContribution } from '@theia/core/lib/common';
-import { FrontendApplicationContribution } from '@theia/core/lib/browser';
+import { FrontendApplicationContribution, KeybindingContribution } from '@theia/core/lib/browser';
 import { WebSocketConnectionProvider } from '@theia/core/lib/browser/messaging';
 import { PreferenceContribution } from '@theia/core/lib/common/preferences';
 import { cppBuildPreferenceSchema } from '../common/cpp-build-preferences';
@@ -23,7 +23,7 @@ export default new ContainerModule(bind => {
     bind(CppBuildFrontendContribution).toSelf().inSingletonScope();
     bind(CppBuildStatusBarContribution).toSelf().inSingletonScope();
 
-    for (const identifier of [FrontendApplicationContribution, CommandContribution, MenuContribution]) {
+    for (const identifier of [FrontendApplicationContribution, CommandContribution, MenuContribution, KeybindingContribution]) {
         bind(identifier).toService(CppBuildFrontendContribution);
     }
 

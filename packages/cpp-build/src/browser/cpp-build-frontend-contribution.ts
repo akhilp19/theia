@@ -16,7 +16,7 @@ import {
     MessageService,
     nls
 } from '@theia/core/lib/common';
-import { FrontendApplicationContribution, QuickInputService, QuickPickItem } from '@theia/core/lib/browser';
+import { FrontendApplicationContribution, KeybindingContribution, KeybindingRegistry, QuickInputService, QuickPickItem } from '@theia/core/lib/browser';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { CppBuildService } from './cpp-build-service';
 import { BuildConfigurationOptions, BuildTarget } from '../common/build-system-model';
@@ -53,7 +53,7 @@ export namespace CppBuildCommands {
 }
 
 @injectable()
-export class CppBuildFrontendContribution implements CommandContribution, MenuContribution, FrontendApplicationContribution {
+export class CppBuildFrontendContribution implements CommandContribution, MenuContribution, KeybindingContribution, FrontendApplicationContribution {
 
     @inject(CppBuildService)
     protected readonly buildService: CppBuildService;
@@ -206,6 +206,21 @@ export class CppBuildFrontendContribution implements CommandContribution, MenuCo
 
     registerMenus(menus: MenuModelRegistry): void {
         // Placeholder: register commands under a future Terminal/Run menu contribution point.
+    }
+
+    registerKeybindings(keybindings: KeybindingRegistry): void {
+        keybindings.registerKeybinding({
+            command: CppBuildCommands.BUILD.id,
+            keybinding: 'ctrlcmd+shift+b'
+        });
+        keybindings.registerKeybinding({
+            command: CppBuildCommands.CLEAN.id,
+            keybinding: 'ctrlcmd+shift+alt+b'
+        });
+        keybindings.registerKeybinding({
+            command: CppBuildCommands.CONFIGURE.id,
+            keybinding: 'ctrlcmd+shift+f9'
+        });
     }
 
     protected getWorkspaceRoot() {
