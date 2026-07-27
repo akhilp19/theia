@@ -23,6 +23,7 @@ This extension detects and drives C/C++ build systems from within Theia. It is t
 
 ## Commands
 
+- `C/C++: Onboard Project`
 - `C/C++: Detect Build System`
 - `C/C++: Select Build Preset`
 - `C/C++: Configure Project`
@@ -51,6 +52,7 @@ Keybindings can be customized in Theia's keyboard shortcuts editor or `keybindin
 - Phase D (clangd wiring) complete: `.clangd` config is auto-generated after configure/build with the resolved `CompilationDatabase` path.
 - Phase E (debug integration) complete: `cppdbg` debug adapter contribution and `Debug Selected Target` command launch gdb/lldb from a build target.
 - Phase F (remote builds) complete: build commands, file detection, `CMakePresets.json`/`compile_commands.json` reading, and `.clangd` writing are routed through Theia's remote abstractions so the extension works with WSL, containers, and SSH hosts.
+- Phase 1 onboarding wizard scaffold complete: `C/C++: Onboard Project` detects the toolchain, proposes `CMakePresets.json` and `.clangd`, and generates project configuration files.
 
 ## Remote builds
 

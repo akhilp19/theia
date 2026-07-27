@@ -17,6 +17,7 @@ import {
     nls
 } from '@theia/core/lib/common';
 import { FrontendApplicationContribution, KeybindingContribution, KeybindingRegistry, QuickInputService, QuickPickItem } from '@theia/core/lib/browser';
+import { ProgressService } from '@theia/core/lib/common/progress-service';
 import { OutputChannelManager } from '@theia/output/lib/browser/output-channel';
 import { DebugSessionManager } from '@theia/debug/lib/browser/debug-session-manager';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
@@ -60,6 +61,10 @@ export namespace CppBuildCommands {
         id: 'cppBuild.debugSelectedTarget',
         label: nls.localize('theia/cpp-build/debugSelectedTarget', 'C/C++: Debug Selected Target')
     };
+    export const ONBOARD_PROJECT = {
+        id: 'cppBuild.onboardProject',
+        label: nls.localize('theia/cpp-build/onboardProject', 'C/C++: Onboard Project')
+    };
 }
 
 @injectable()
@@ -82,6 +87,9 @@ export class CppBuildFrontendContribution implements CommandContribution, MenuCo
 
     @inject(DebugSessionManager)
     protected readonly debugSessionManager: DebugSessionManager;
+
+    @inject(ProgressService)
+    protected readonly progressService: ProgressService;
 
     protected activeOptions = new Map<string, BuildConfigurationOptions>();
     protected outputChannel?: ReturnType<OutputChannelManager['getChannel']>;
@@ -305,6 +313,89 @@ export class CppBuildFrontendContribution implements CommandContribution, MenuCo
                 });
             }
         });
+
+        commands.registerCommand(CppBuildCommands.ONBOARD_PROJECT, {
+            execute: async () => {
+                const root = this.getWorkspaceRoot();
+                if (!root) {
+                    this.messageService.warn('No workspace open.');
+                    return;
+                }
+
+                await this.progressService.withProgress('C/C++ project onboarding', 'cpp-build-onboard', async () => {
+                    try {
+                        this.outputChannel?.show({ preserveFocus: true });
+                        this.outputChannel?.appendLine('Detecting C/C++ toolchain...');
+                        const toolchain = await this.buildService.detectToolchain(root);
+                        this.logToolchain(toolchain);
+
+                        if (toolchain.missing.length > 0) {
+                            this.messageService.warn(`Missing recommended tools: ${toolchain.missing.join(', ')}`);
+                        }
+
+                        this.outputChannel?.appendLine('Proposing project configuration...');
+                        const proposal = await this.buildService.proposeConfiguration(root);
+                        this.logProposal(proposal);
+
+                        if (!proposal.canGenerateCMakePresets && !proposal.clangdContent) {
+                            this.messageService.warn('Nothing to generate for this project.');
+                            return;
+                        }
+
+                        const confirm = await this.quickInputService.showQuickPick([
+                            { label: 'Yes', description: 'Generate configuration files' },
+                            { label: 'No', description: 'Cancel onboarding' }
+                        ], { placeHolder: 'Apply proposed project configuration?' });
+
+                        if (!confirm || confirm.label !== 'Yes') {
+                            this.messageService.info('Onboarding cancelled.');
+                            return;
+                        }
+
+                        const result = await this.buildService.applyConfiguration(root, proposal);
+                        if (result.success) {
+                            this.messageService.info(result.message);
+                        } else {
+                            this.messageService.error(result.message);
+                        }
+                        for (const warning of result.warnings) {
+                            this.messageService.warn(warning);
+                        }
+                    } catch (err) {
+                        this.messageService.error(`Onboarding failed: ${String(err)}`);
+                        console.error('C/C++ onboarding failed:', err);
+                    }
+                });
+            }
+        });
+    }
+
+    protected logToolchain(toolchain: import('../common/cpp-onboarding-protocol').ToolchainReport): void {
+        const log = (label: string, items: Array<{ name: string; version?: string }>) => {
+            if (items.length === 0) {
+                return;
+            }
+            this.outputChannel?.appendLine(`${label}: ${items.map(i => `${i.name}${i.version ? ` ${i.version}` : ''}`).join(', ')}`);
+        };
+        log('Compilers', toolchain.compilers);
+        log('Debuggers', toolchain.debuggers);
+        log('Build tools', toolchain.buildTools);
+        log('Package managers', toolchain.packageManagers);
+    }
+
+    protected logProposal(proposal: import('../common/cpp-onboarding-protocol').ProjectConfigurationProposal): void {
+        if (proposal.buildSystem) {
+            this.outputChannel?.appendLine(`Detected build system: ${proposal.buildSystem}`);
+        }
+        if (proposal.canGenerateCMakePresets) {
+            this.outputChannel?.appendLine('CMakePresets.json proposal ready.');
+        }
+        if (proposal.clangdContent) {
+            this.outputChannel?.appendLine('.clangd proposal ready.');
+        }
+        for (const warning of proposal.warnings) {
+            this.outputChannel?.appendLine(`Warning: ${warning}`);
+        }
     }
 
     registerMenus(menus: MenuModelRegistry): void {

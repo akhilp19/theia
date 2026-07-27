@@ -12,6 +12,12 @@ import { Emitter } from '@theia/core/lib/common';
 import URI from '@theia/core/lib/common/uri';
 import { CppBuildClient, CppBuildServer, DetectedBuildSystem } from '../common/cpp-build-protocol';
 import { BuildConfigurationOptions, BuildSystemType, BuildTarget, DebugLaunchInfo } from '../common/build-system-model';
+import {
+    CppOnboardingServer,
+    OnboardingResult,
+    ProjectConfigurationProposal,
+    ToolchainReport
+} from '../common/cpp-onboarding-protocol';
 
 export interface ActiveBuildSystem {
     root: URI;
@@ -26,6 +32,9 @@ export class CppBuildService implements CppBuildClient {
 
     @inject(CppBuildServer)
     protected readonly server: CppBuildServer;
+
+    @inject(CppOnboardingServer)
+    protected readonly onboardingServer: CppOnboardingServer;
 
     protected readonly onActiveBuildSystemChangedEmitter = new Emitter<ActiveBuildSystem | undefined>();
     readonly onActiveBuildSystemChanged = this.onActiveBuildSystemChangedEmitter.event;
@@ -95,5 +104,17 @@ export class CppBuildService implements CppBuildClient {
 
     getActiveBuildSystem(): ActiveBuildSystem | undefined {
         return this.activeBuildSystem;
+    }
+
+    async detectToolchain(root: URI): Promise<ToolchainReport> {
+        return this.onboardingServer.detectToolchain(root.toString());
+    }
+
+    async proposeConfiguration(root: URI): Promise<ProjectConfigurationProposal> {
+        return this.onboardingServer.proposeConfiguration(root.toString());
+    }
+
+    async applyConfiguration(root: URI, proposal: ProjectConfigurationProposal): Promise<OnboardingResult> {
+        return this.onboardingServer.applyConfiguration(root.toString(), proposal);
     }
 }

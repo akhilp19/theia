@@ -17,6 +17,7 @@ import { CppBuildServer, CppBuildClient, cppBuildPath } from '../common/cpp-buil
 import { CppBuildFrontendContribution } from './cpp-build-frontend-contribution';
 import { CppBuildService } from './cpp-build-service';
 import { CppBuildStatusBarContribution } from './cpp-build-status-bar-contribution';
+import { cppOnboardingPath, CppOnboardingServer } from '../common/cpp-onboarding-protocol';
 
 export default new ContainerModule(bind => {
     bind(CppBuildService).toSelf().inSingletonScope();
@@ -35,5 +36,10 @@ export default new ContainerModule(bind => {
         const connection = ctx.container.get(WebSocketConnectionProvider);
         const client: CppBuildClient = ctx.container.get(CppBuildService);
         return connection.createProxy<CppBuildServer>(cppBuildPath, client);
+    }).inSingletonScope();
+
+    bind(CppOnboardingServer).toDynamicValue(ctx => {
+        const connection = ctx.container.get(WebSocketConnectionProvider);
+        return connection.createProxy<CppOnboardingServer>(cppOnboardingPath);
     }).inSingletonScope();
 });

@@ -21,8 +21,9 @@ import { BazelBuildSystemAdapter } from './adapters/bazel-adapter';
 import { MesonBuildSystemAdapter } from './adapters/meson-adapter';
 import { MakeBuildSystemAdapter } from './adapters/make-adapter';
 import { CppDebugAdapterContribution } from './cpp-debug-adapter-contribution';
+import onboardingBackendModule from './onboarding/cpp-onboarding-backend-module';
 
-export default new ContainerModule(bind => {
+export default new ContainerModule((bind, unbind, isBound, rebind) => {
     bind(CppBuildServerImpl).toSelf().inSingletonScope();
     bind(CppBuildServer).toService(CppBuildServerImpl);
     bind(BuildSystemRegistry).toSelf().inSingletonScope();
@@ -48,4 +49,6 @@ export default new ContainerModule(bind => {
             return server;
         })
     ).inSingletonScope();
+
+    onboardingBackendModule.registry(bind, unbind, isBound, rebind);
 });
